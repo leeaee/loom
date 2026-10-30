@@ -255,7 +255,8 @@ export function deriveTimeline(state: RunState): TimelineItem[] {
   const grouped = new Map<WorkflowStepId, { statuses: StepStatus[]; records: StepRecord[] }>();
   for (const [id, record] of Object.entries(state.steps)) {
     const group = stepGroupOf(id);
-    if (!group) continue;
+    // 汇总步骤在跳过摘要时也会成功，计入会让“模块摘要”显示为完成。
+    if (!group || id === "collect-digests") continue;
     const raw = normalize(record.status);
     const status = id === "skip-digest" && raw === "success" ? "skipped" : raw;
     const entry = grouped.get(group) ?? { statuses: [], records: [] };

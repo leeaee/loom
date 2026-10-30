@@ -58,7 +58,7 @@ describe("runReducer + deriveTimeline", () => {
     expect(statusOf(timeline)).toMatchObject({
       "sync-repo": "success",
       "scout-repo": "success",
-      digest: "success",
+      digest: "skipped",
       analyses: "success",
       advisor: "success",
       render: "success",
@@ -113,6 +113,12 @@ describe("runReducer + deriveTimeline", () => {
   it("groups nested digest steps under the digest stage", () => {
     const state = play([start("digest-modules.plan-digests"), start("digest-modules")]);
     expect(statusOf(deriveTimeline(state)).digest).toBe("running");
+    const finished = play([
+      done("digest-modules.plan-digests"),
+      done("digest-modules"),
+      done("collect-digests"),
+    ]);
+    expect(statusOf(deriveTimeline(finished)).digest).toBe("success");
   });
 
   it("settles running steps when the run fails or is canceled", () => {
