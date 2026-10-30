@@ -1,0 +1,14 @@
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      glob: "*.{js,jsx,ts,tsx,json,jsonc,css}"
+      run: npx biome check --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+    harness:
+      glob: "{.agents/skills/**,.claude/**,AGENTS.md,**/AGENTS.md,**/CLAUDE.md}"
+      run: npm run harness:check
+
+commit-msg:
+  commands:
+    commitlint:
+      run: npx commitlint --edit {1}

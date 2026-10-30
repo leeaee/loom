@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+
+# lockfiles from other package managers (npm only)
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+bun.lockb
+
+# build output
+.next/
+.mastra/
+dist/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# runtime data: cloned repos, run artifacts, local database
+.loom/
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# os / editor
+.DS_Store
+*.log

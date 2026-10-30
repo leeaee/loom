@@ -1,0 +1,21 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "rangeStrategy": "pin",
+  "schedule": ["before 6am on monday"],
+  "timezone": "Asia/Shanghai",
+  "npm": { "minimumReleaseAge": "3 days" },
+  "packageRules": [
+    { "groupName": "mastra", "matchPackageNames": ["@mastra/**", "mastra"] },
+    {
+      "groupName": "next",
+      "matchPackageNames": ["next", "react", "react-dom", "@types/react", "@types/react-dom"]
+    },
+    { "groupName": "tailwind", "matchPackageNames": ["tailwindcss", "@tailwindcss/**"] },
+    { "groupName": "typescript", "matchPackageNames": ["typescript", "@typescript/native"] },
+    {
+      "groupName": "toolchain",
+      "matchPackageNames": ["@biomejs/biome", "vitest", "dependency-cruiser", "lefthook", "@commitlint/**"]
+    }
+  ]
+}
