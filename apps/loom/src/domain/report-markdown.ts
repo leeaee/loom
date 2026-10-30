@@ -113,12 +113,20 @@ export function renderReportMarkdown(report: Report): string {
     `- 仓库：${repo.url}`,
     `- 提交：\`${repo.sha}\`${repo.ref ? `（${repo.ref}）` : ""}`,
     `- 生成时间：${report.createdAt}`,
-    `- 模式：${report.mode}${report.model ? `（${report.model}）` : ""}`,
+    report.mode === "fake"
+      ? "- 模式：假模式"
+      : `- 模式：真实模式${report.model ? `（${report.model}）` : ""}`,
     `- 文件：${scout.totalFiles}，源文件：${scout.sourceFiles}`,
     `- 语言：${scout.languages.map((l) => `${l.language} ${l.files}`).join("、") || "未识别"}`,
     `- 引用核实：${citationCheck.verified}/${citationCheck.total}`,
     "",
   ];
+  if (report.mode === "fake") {
+    lines.push(
+      "> 本报告由假模式生成：各分析内容是内置示例数据，与本仓库无关。配置大模型后重新分析才能得到真实结果。",
+      "",
+    );
+  }
 
   if (report.digests.length) {
     lines.push("## 模块摘要", "");

@@ -49,7 +49,7 @@ export const collectAnalysesStep = createStep({
     const total = Object.keys(inputData).length;
     const succeeded = Object.keys(merged.artifacts).length;
     await (succeeded < total ? log.warn : log.info)(
-      `分析阶段结束：${succeeded}/${total} 项成功，进入技术选型`,
+      `分析阶段结束：${succeeded}/${total} 项成功，进入技术选型（各项结果暂存在工作流状态中，生成报告时写入 report.json）`,
     );
     return { ...previous, ...merged };
   },

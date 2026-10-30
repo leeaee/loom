@@ -19,12 +19,15 @@ cp .env.example apps/loom/.env    # 默认假模式，不需要模型密钥
 npm run dev                       # Mastra Studio http://localhost:4111，Web http://localhost:3000
 ```
 
-打开 <http://localhost:3000>，输入 `vercel/ms` 或任意公开仓库地址即可。假模式下 git 同步与扫描真实执行，
-分析结果来自内置夹具，用来跑通流程和开发界面。
+打开 <http://localhost:3000>，输入 `vercel/ms` 或任意公开仓库地址即可。
+
+**假模式**（`LOOM_AGENT_MODE=fake`，默认）不调用大模型：git 同步与文件扫描真实执行，但 API、数据结构、架构图、
+技术选型的内容都是内置示例数据（一个虚构的待办事项服务），与所分析的仓库无关，只用来跑通流程和开发界面。
+首页“运行环境”卡片会显示当前模式、模型、接口地址与数据目录。
 
 ### 真实模式
 
-在 `apps/loom/.env` 中设置：
+在 `apps/loom/.env` 中设置后重启 `npm run dev`：
 
 ```bash
 LOOM_AGENT_MODE=real
@@ -32,6 +35,28 @@ LOOM_MODEL=openai/gpt-5.1          # Mastra 的 provider/model 字符串
 OPENAI_API_KEY=...                 # 对应供应商的密钥
 GITHUB_TOKEN=...                   # 可选：私有仓库与 GitHub MCP
 ```
+
+使用自建或第三方的 OpenAI 兼容接口（DeepSeek、通义、Ollama、vLLM、公司网关等）时，再设置接口地址与密钥；
+请求发往 `<LOOM_MODEL_URL>/chat/completions`，`LOOM_MODEL` 的 provider 前缀只作标识，发送的模型名是斜杠后的部分：
+
+```bash
+LOOM_MODEL=deepseek/deepseek-chat
+LOOM_MODEL_URL=https://api.deepseek.com/v1   # 本地 Ollama：http://localhost:11434/v1
+LOOM_MODEL_API_KEY=sk-...                     # 设置了 URL 时只读这一项；本地 Ollama 可留空
+```
+
+### 数据保存在哪里
+
+默认在仓库根的 `.loom/`（可用 `LOOM_DATA_DIR` 修改），运行日志里每一步都会写出具体路径：
+
+| 路径 | 内容 |
+| --- | --- |
+| `.loom/repos/<host>/<owner>/<name>/mirror` | 仓库镜像（浅克隆） |
+| `.loom/repos/<host>/<owner>/<name>/checkouts/<sha>` | 按提交检出的只读分析目录 |
+| `.loom/runs/<runId>/` | `report.json`、`report.md`、`logs.jsonl` |
+| `.loom/cache/<key>.json` | 缓存索引：同一提交与技能版本复用哪次运行的报告 |
+| `.loom/scratch/<runId>/` | 真实模式下 Agent 沙箱的可写目录，运行结束删除 |
+| `.loom/mastra.db` | Mastra 的工作流快照与运行记录 |
 
 ### 命令行
 

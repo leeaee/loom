@@ -4,8 +4,8 @@ import type { Mastra } from "@mastra/core/mastra";
 import { RequestContext } from "@mastra/core/request-context";
 import type { z } from "zod";
 import { loadConfig } from "../../config/index";
-import { LoomError, redactSecrets } from "../../domain/index";
-import { acquireRunResources, type RunLogger } from "../../infra/index";
+import { LoomError, parseAgentOutput, redactSecrets } from "../../domain/index";
+import { acquireRunResources, REPO_MOUNT, type RunLogger, SKILLS_MOUNT } from "../../infra/index";
 import type { RunContext } from "../types";
 import { RUN_ID_KEY } from "./create-agent";
 
@@ -46,14 +46,16 @@ type StepEvent = {
 /**
  * 调用一个分析 Agent 并返回经 Zod 校验的结构化产物。
  * - 假模式：不调用模型，返回夹具（可用 LOOM_FAKE_DELAY_MS 模拟耗时）。
- * - 真实模式：设最大步数；每次工具调用写一条运行日志；校验失败时带着错误信息重试一次，仍失败抛出 AGENT_OUTPUT_INVALID。
+ * - 真实模式：设最大步数；每次工具调用写一条运行日志；产出先宽松解析（代码块、说明文字、多包一层键），
+ *   仍不合格时带着对话历史与校验错误让模型只修正格式一次（禁用工具），再失败抛出 AGENT_OUTPUT_INVALID。
  */
 export async function runAnalysisAgent<T>(input: RunAgentInput<T>): Promise<T> {
   const { ctx, log } = input;
   const config = loadConfig();
   if (ctx.mode === "fake") {
     await log?.info(
-      config.fakeDelayMs > 0 ? `假模式：模拟耗时 ${config.fakeDelayMs} ms 后返回夹具` : "假模式：返回夹具",
+      "假模式：不调用大模型，返回内置示例数据（与本仓库内容无关）" +
+        (config.fakeDelayMs > 0 ? `，模拟耗时 ${config.fakeDelayMs} ms` : ""),
     );
     if (config.fakeDelayMs > 0) await sleep(config.fakeDelayMs, undefined, { signal: input.abortSignal });
     return input.schema.parse(input.fixture());
@@ -73,6 +75,10 @@ export async function runAnalysisAgent<T>(input: RunAgentInput<T>): Promise<T> {
   await log?.info(
     `调用 Agent ${input.agent.id}（模型 ${ctx.model ?? "未设置"}，最多 ${config.maxSteps} 步` +
       `${mcpServers.length ? `，MCP：${mcpServers.join("、")}` : ""}）`,
+  );
+  await log?.info(
+    `Agent 只读挂载 ${REPO_MOUNT} → ${ctx.checkoutDir}、${SKILLS_MOUNT} → ${config.paths.skillsDir}；` +
+      `沙箱可写目录 ${resources.workspace.scratchDir}（运行结束删除）`,
   );
   for (const [server, message] of Object.entries(resources.mcp.errors)) {
     await log?.warn(`MCP ${server} 不可用：${message}`);
@@ -104,36 +110,72 @@ export async function runAnalysisAgent<T>(input: RunAgentInput<T>): Promise<T> {
     }
   };
 
-  let lastError: string | null = null;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const prompt = lastError
-      ? `${input.prompt}\n\n上一次输出未通过结构校验，请修正后重新输出完整结果。校验错误：\n${lastError}`
-      : input.prompt;
+  // 校验失败不在框架内抛错，交给 parseAgentOutput 宽松解析，再决定是否修正。
+  const structuredOutput = {
+    schema: input.schema,
+    jsonPromptInjection: "auto" as const,
+    errorStrategy: "warn" as const,
+  };
+  const common = {
+    requestContext,
+    toolsets: resources.mcp.toolsets,
+    onStepFinish,
+    structuredOutput,
+    ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
+  };
+  const call = async <R>(run: () => Promise<R>): Promise<R> => {
     try {
-      const result = await agent.generate(prompt, {
-        maxSteps: config.maxSteps,
-        requestContext,
-        toolsets: resources.mcp.toolsets,
-        onStepFinish,
-        ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
-        structuredOutput: { schema: input.schema, jsonPromptInjection: "auto" },
-      });
-      const parsed = input.schema.safeParse(result.object);
-      if (parsed.success) {
-        await log?.info(`Agent 完成，共 ${modelSteps} 步`);
-        return parsed.data;
-      }
-      lastError = errorMessage(parsed.error);
+      return await run();
     } catch (error) {
       if (input.abortSignal?.aborted) throw error;
-      lastError = errorMessage(error);
-      if (!/schema|validat|parse|json/i.test(lastError)) {
-        throw new LoomError("AGENT_FAILED", `Agent ${input.agent.id} 调用失败：${lastError}`, {
-          cause: error,
-        });
-      }
+      throw new LoomError("AGENT_FAILED", `Agent ${input.agent.id} 调用失败：${errorMessage(error)}`, {
+        cause: error,
+      });
     }
-    if (attempt === 0) await log?.warn(`输出未通过结构校验，带着错误重试一次：${lastError.slice(0, 300)}`);
+  };
+
+  const result = await call(() => agent.generate(input.prompt, { ...common, maxSteps: config.maxSteps }));
+  let parsed = parseAgentOutput(input.schema, { object: result.object, text: finalText(result) });
+
+  if (!parsed.ok) {
+    await log?.warn(
+      `输出不符合合同，带着校验错误让模型只修正格式（不再调用工具）：${parsed.error.slice(0, 300)}`,
+    );
+    const messages = [
+      { role: "user", content: input.prompt },
+      ...(result.response?.messages ?? []),
+      { role: "user", content: repairPrompt(parsed.error) },
+    ] as Parameters<Agent["generate"]>[0];
+    const repaired = await call(() =>
+      agent.generate(messages, { ...common, maxSteps: 1, toolChoice: "none" }),
+    );
+    parsed = parseAgentOutput(input.schema, { object: repaired.object, text: finalText(repaired) });
   }
-  throw new LoomError("AGENT_OUTPUT_INVALID", `Agent ${input.agent.id} 两次输出都不符合合同：${lastError}`);
+
+  if (!parsed.ok) {
+    throw new LoomError(
+      "AGENT_OUTPUT_INVALID",
+      `Agent ${input.agent.id} 修正后仍不符合合同：${redactSecrets(parsed.error)}`,
+    );
+  }
+  if (parsed.value.unwrappedKey) {
+    await log?.info(`模型把结果包在 "${parsed.value.unwrappedKey}" 键下，已自动拆开`);
+  }
+  await log?.info(`Agent 完成，共 ${modelSteps} 步`);
+  return parsed.value.value;
+}
+
+type GenerateOutput = { text: string; steps?: { text?: string }[] };
+
+/** 最后一步的文字才是最终回复；最后一步没有文字（例如用完步数）时退回全部文字。 */
+function finalText(output: GenerateOutput): string {
+  return output.steps?.at(-1)?.text?.trim() || output.text;
+}
+
+function repairPrompt(error: string): string {
+  return [
+    "你上面的最终输出没有通过结构校验。不要再调用工具，直接根据已经读到的内容重新输出完整结果。",
+    "只输出一个符合 schema 的 JSON 对象本身：不要用代码块包裹，不要加说明文字，也不要在外面再包一层键。",
+    `校验错误：\n${error}`,
+  ].join("\n");
 }

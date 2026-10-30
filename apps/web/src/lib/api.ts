@@ -3,9 +3,11 @@ import {
   type Report,
   type RunList,
   type RunLogEntry,
+  type RuntimeInfo,
   reportSchema,
   runListSchema,
   runLogSchema,
+  runtimeInfoSchema,
 } from "@loom/contracts";
 import type { z } from "zod";
 import { MASTRA_PREFIX } from "./mastra";
@@ -35,6 +37,10 @@ async function getJson<T>(path: string, schema: z.ZodType<T>, what: string): Pro
   const parsed = schema.safeParse(await response.json());
   if (!parsed.success) throw new ContractError(what, parsed.error.issues);
   return parsed.data;
+}
+
+export function fetchRuntime(): Promise<RuntimeInfo> {
+  return getJson(loomRoutes.runtime, runtimeInfoSchema, "运行环境");
 }
 
 export function fetchRuns(): Promise<RunList> {

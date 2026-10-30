@@ -39,6 +39,14 @@ Mastra 服务与 CLI。先读根目录 `AGENTS.md`，这里只写本包的局部
   不要直接 `writer.write` 或 `console`。日志同时推给前端、写进 `.loom/runs/<runId>/logs.jsonl`，并经过 `redactSecrets`。
 - `step` 用工作流步骤 id 或分析 id；模块摘要用 `digest:<module>`，前端据此归到对应阶段。
 - 每个步骤至少记录开始/结果；失败写 `error`，降级或部分失败写 `warn`。
+- 读写磁盘的步骤要在日志里写出绝对路径（检出目录、报告、缓存文件、沙箱目录），用户据此找到产物。
+
+## 模型
+
+- `LOOM_MODEL`（`provider/model`）走 Mastra 模型路由；同时设置 `LOOM_MODEL_URL` 时改走 OpenAI 兼容接口，
+  此时 Mastra 只用 `LOOM_MODEL_API_KEY`，不再读 provider 的 `*_API_KEY`；发给接口的模型名是去掉 provider 前缀后的部分。解析集中在 `analyses/shared/create-agent.ts` 的 `resolveModel`。
+- 报告与缓存键里的模型标识用 `modelLabel(config)`：换了接口地址视为不同模型。
+- `GET /loom/runtime` 返回当前模式、模型、接口地址与数据目录给首页展示，不含密钥。
 
 ## mastra dev 与 contracts
 

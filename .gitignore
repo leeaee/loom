@@ -18,6 +18,7 @@ next-env.d.ts
 
 # runtime data: cloned repos, run artifacts, local database
 .loom/
+.sandbox-profiles/
 
 # env & secrets
 .env

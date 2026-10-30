@@ -18,6 +18,7 @@ Next.js 16 界面，本机单用户。先读根目录 `AGENTS.md`，这里只写
 src/app/                  路由（App Router）；页面只做组装，逻辑放 features
 src/features/runs/        提交、结论横幅、进度时间线、运行日志、最近运行（useAnalysisRun、runReducer、deriveOutcome）
 src/features/report/      报告标签页、分区注册表、Mermaid、表格、引用
+src/features/runtime/     首页“运行环境”卡片（模式、模型、接口地址、数据目录）
 src/components/ui/        shadcn/ui 生成的组件
 src/lib/                  copy.ts（全部中文文案）、api.ts（contracts 解析）、mastra.ts（client-js）
 ```

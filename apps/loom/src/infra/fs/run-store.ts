@@ -91,11 +91,11 @@ export class RunStore {
     return entry.success && this.hasReport(entry.data.runId) ? entry.data.runId : null;
   }
 
-  async recordCache(cacheKey: string, runId: string): Promise<void> {
-    await writeAtomic(
-      join(this.dirs.cacheDir, `${cacheKey}.json`),
-      JSON.stringify({ runId, createdAt: new Date().toISOString() }),
-    );
+  /** 返回写入的缓存文件路径。 */
+  async recordCache(cacheKey: string, runId: string): Promise<string> {
+    const path = join(this.dirs.cacheDir, `${cacheKey}.json`);
+    await writeAtomic(path, JSON.stringify({ runId, createdAt: new Date().toISOString() }));
+    return path;
   }
 }
 

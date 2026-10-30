@@ -96,8 +96,24 @@ export type RunLogEntry = z.infer<typeof runLogEntrySchema>;
 export const runLogSchema = z.object({ entries: z.array(runLogEntrySchema) });
 export type RunLog = z.infer<typeof runLogSchema>;
 
+/** fake：不调用模型，分析结果取自内置示例夹具；real：调用 LOOM_MODEL 指定的模型。 */
+export const agentModeSchema = z.enum(["real", "fake"]);
+export type AgentMode = z.infer<typeof agentModeSchema>;
+
+/** GET /loom/runtime：服务端当前生效的配置，不含任何密钥。 */
+export const runtimeInfoSchema = z.object({
+  mode: agentModeSchema,
+  model: z.string().nullable(),
+  modelUrl: z.string().nullable().describe("OpenAI 兼容接口地址；null 表示使用模型供应商的默认地址"),
+  fakeDelayMs: z.number().int().nonnegative(),
+  dataDir: z.string().describe("Loom 数据目录的绝对路径（克隆缓存、报告、日志、数据库）"),
+  envFile: z.string().describe("服务端读取的 .env 文件路径"),
+});
+export type RuntimeInfo = z.infer<typeof runtimeInfoSchema>;
+
 export const LOOM_API_PREFIX = "/loom";
 export const loomRoutes = {
+  runtime: `${LOOM_API_PREFIX}/runtime`,
   runs: `${LOOM_API_PREFIX}/runs`,
   report: (runId: string) => `${LOOM_API_PREFIX}/runs/${encodeURIComponent(runId)}/report`,
   reportMarkdown: (runId: string) => `${LOOM_API_PREFIX}/runs/${encodeURIComponent(runId)}/report.md`,

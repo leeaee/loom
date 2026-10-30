@@ -6,9 +6,11 @@ import {
   type RunSummary,
   runListSchema,
   runLogSchema,
+  runtimeInfoSchema,
 } from "@loom/contracts";
 import { registerApiRoute } from "@mastra/core/server";
-import { LoomError } from "../../domain/index";
+import { loadConfig } from "../../config/index";
+import { LoomError, redactSecrets } from "../../domain/index";
 import { getRunStore } from "../runtime";
 
 const STATUS_MAP: Record<string, RunStatus> = {
@@ -54,6 +56,22 @@ async function reportOr404<T>(read: () => Promise<T>): Promise<{ ok: true; value
 
 /** Loom 自有的只读接口；运行的创建、观察与取消使用 Mastra 原生工作流接口。 */
 export const loomApiRoutes = [
+  registerApiRoute(`${LOOM_API_PREFIX}/runtime`, {
+    method: "GET",
+    handler: async (c) => {
+      const config = loadConfig();
+      return c.json(
+        runtimeInfoSchema.parse({
+          mode: config.mode,
+          model: config.model,
+          modelUrl: config.modelUrl ? redactSecrets(config.modelUrl) : null,
+          fakeDelayMs: config.fakeDelayMs,
+          dataDir: config.paths.dataDir,
+          envFile: config.paths.envFile,
+        }),
+      );
+    },
+  }),
   registerApiRoute(`${LOOM_API_PREFIX}/runs`, {
     method: "GET",
     handler: async (c) => {

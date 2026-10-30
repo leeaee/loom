@@ -45,9 +45,11 @@ export const renderStep = createStep({
 
     const store = getRunStore();
     const reportPath = await store.writeReport(report, renderReportMarkdown(report));
+    const paths = store.reportPaths(ctx.runId);
+    await log.info(`报告已写入 ${paths.json}、${paths.markdown}；运行日志 ${paths.logs}`);
     if (errors.length === 0) {
-      await store.recordCache(ctx.cacheKey, ctx.runId);
-      await log.info("报告已生成并写入缓存");
+      const cacheFile = await store.recordCache(ctx.cacheKey, ctx.runId);
+      await log.info(`报告已生成并写入缓存（${cacheFile}）`);
     } else {
       await log.warn(`报告已生成，含 ${errors.length} 个步骤错误；有错误的报告不写入缓存`);
     }

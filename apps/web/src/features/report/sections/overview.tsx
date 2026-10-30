@@ -1,6 +1,7 @@
 "use client";
 
 import { analysisIds, type Report } from "@loom/contracts";
+import { TriangleAlert } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { copy } from "@/lib/copy";
@@ -22,6 +23,13 @@ export function OverviewSection({ report }: { report: Report }) {
   const { repo, scout, citationCheck } = report;
   return (
     <div className="grid gap-4">
+      {report.mode === "fake" ? (
+        <Alert className="border-warning/60">
+          <TriangleAlert className="text-warning" />
+          <AlertTitle>{copy.report.fakeNotice}</AlertTitle>
+          <AlertDescription>{copy.report.fakeNoticeDetail}</AlertDescription>
+        </Alert>
+      ) : null}
       <Card>
         <CardContent>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -41,8 +49,8 @@ export function OverviewSection({ report }: { report: Report }) {
             </Meta>
             <Meta label={m.createdAt}>{timeFormat.format(new Date(report.createdAt))}</Meta>
             <Meta label={m.mode}>
-              {report.mode}
-              {report.model ? ` · ${report.model}` : ""}
+              {copy.runtime.mode[report.mode]}
+              {report.mode === "real" && report.model ? ` · ${report.model}` : ""}
             </Meta>
             <Meta label={m.files}>
               {scout.totalFiles} / {scout.sourceFiles}

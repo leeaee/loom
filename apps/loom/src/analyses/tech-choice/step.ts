@@ -14,6 +14,6 @@ export const techChoiceStep = createAdviseStep({
       artifactsContext(artifacts),
       errors.length ? `\n前序步骤的错误：${errors.map((e) => `${e.step}: ${e.message}`).join("；")}` : "",
       "",
-      "请按 tech-choice 技能输出技术选型评估与建议（techChoice）。前序产物只作线索，结论必须回到仓库里核实。",
+      "请按 tech-choice 技能输出技术选型评估与建议。前序产物只作线索，结论必须回到仓库里核实。",
     ].join("\n"),
 });

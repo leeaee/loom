@@ -1,4 +1,4 @@
-import type { AnalysisId, RunLogLevel, RunStatus, WorkflowStepId } from "@loom/contracts";
+import type { AgentMode, AnalysisId, RunLogLevel, RunStatus, WorkflowStepId } from "@loom/contracts";
 
 /** 界面上的全部中文文案。组件里不直接写字符串，便于统一修改与将来国际化。 */
 export const copy = {
@@ -22,6 +22,27 @@ export const copy = {
     empty: "还没有运行记录",
     loadFailed: "无法读取运行列表，请确认 Mastra 服务已启动（npm run dev）",
     open: "查看",
+  },
+  runtime: {
+    title: "运行环境",
+    loadFailed: "无法读取运行环境，请确认 Mastra 服务已启动（npm run dev）",
+    mode: { fake: "假模式", real: "真实模式" } satisfies Record<AgentMode, string>,
+    modeHint: {
+      fake: "不调用大模型：仓库同步与文件扫描真实执行，但 API、数据结构、架构图、技术选型都是内置示例数据，与所分析的仓库无关。用于没有模型密钥时跑通流程。",
+      real: "调用下面配置的大模型阅读代码并生成报告。",
+    } satisfies Record<AgentMode, string>,
+    model: "模型",
+    modelUrl: "接口地址",
+    modelUrlDefault: "供应商默认地址",
+    notSet: "未设置",
+    fakeDelay: "模拟耗时",
+    dataDir: "数据目录",
+    envFile: "配置文件",
+    dataLayout: "repos/ 仓库镜像与检出 · runs/<runId>/ 报告与日志 · cache/ 缓存索引 · mastra.db 运行记录",
+    howTo:
+      "修改方式：编辑上面的配置文件，设置 LOOM_AGENT_MODE=real 与 LOOM_MODEL（如 openai/gpt-5.1、deepseek/deepseek-chat）；" +
+      "使用自建或第三方 OpenAI 兼容接口时，再设置 LOOM_MODEL_URL（如 https://api.deepseek.com/v1、http://localhost:11434/v1）" +
+      "与 LOOM_MODEL_API_KEY，然后重启 npm run dev。密钥只保存在服务端，界面不会显示。",
   },
   runStatus: {
     pending: "排队中",
@@ -99,6 +120,9 @@ export const copy = {
     contractMismatch: "报告格式与当前合同不一致，可能来自旧版本 Loom。详细信息：",
     missingArtifact: "这一项分析没有产出结果",
     errors: "步骤错误",
+    fakeNotice: "这份报告由假模式生成",
+    fakeNoticeDetail:
+      "除仓库、提交、文件统计与引用核实外，各分析内容都是内置示例数据，与本仓库无关。配置大模型后重新分析才能得到真实结果，配置方法见首页“运行环境”。",
     citations: "引用核实",
     unverified: "未核实的引用",
     unverifiedHint: "文件不存在或行号超出范围",

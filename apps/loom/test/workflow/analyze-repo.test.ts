@@ -91,6 +91,13 @@ describe("analyze-repo workflow (fake mode)", () => {
     const { output, report, steps, logs } = await analyze(true);
     expect(output.cached).toBe(false);
     expect(logLine(logs, "sync-repo", "检出提交")).toBeDefined();
+    expect(logLine(logs, "sync-repo", "假模式（LOOM_AGENT_MODE=fake）", "warn")).toBeDefined();
+    expect(
+      logLine(logs, "sync-repo", `运行目录 ${join(tmp.path, "data", "runs", output.runId)}`),
+    ).toBeDefined();
+    expect(logLine(logs, "sync-repo", `仓库镜像 ${join(tmp.path, "data", "repos")}`)).toBeDefined();
+    expect(logLine(logs, "render", `报告已写入 ${output.reportPath}`)).toBeDefined();
+    expect(logLine(logs, "render", `写入缓存（${join(tmp.path, "data", "cache")}`)).toBeDefined();
     expect(logLine(logs, "scout-repo", "跳过模块摘要")).toBeDefined();
     expect(logLine(logs, "api-surface", "完成")).toBeDefined();
     expect(logLine(logs, "render", "报告已生成并写入缓存")).toBeDefined();

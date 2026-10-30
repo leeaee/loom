@@ -1,3 +1,4 @@
+export { type AgentOutput, extractJsonObject, parseAgentOutput } from "./agent-output";
 export { type CacheKeyInput, computeCacheKey, type HashEntry, hashEntries } from "./cache-key";
 export { collectCitations, normalizeCitationPath, type SourcedCitation, verifyCitations } from "./citations";
 export { type AllowedCommand, checkSkillCommand } from "./command-policy";

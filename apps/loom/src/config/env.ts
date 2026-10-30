@@ -14,6 +14,16 @@ const envSchema = z
         .regex(/^[\w.-]+\/[\w.:-]+$/, "LOOM_MODEL 必须是 provider/model 格式，例如 openai/gpt-5.1")
         .optional(),
     ),
+    LOOM_MODEL_URL: z.preprocess(
+      emptyToUndefined,
+      z
+        .url({
+          protocol: /^https?$/,
+          error: "LOOM_MODEL_URL 必须是 http(s) 地址，例如 https://api.deepseek.com/v1",
+        })
+        .optional(),
+    ),
+    LOOM_MODEL_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
     GITHUB_TOKEN: z.preprocess(emptyToUndefined, z.string().optional()),
     LOOM_SPLIT_FILE_THRESHOLD: z.preprocess(
       emptyToUndefined,
@@ -46,6 +56,10 @@ const envSchema = z
 export type LoomConfig = {
   mode: "real" | "fake";
   model: string | null;
+  /** OpenAI 兼容接口地址（/chat/completions 的上一级）；null 时用供应商默认地址 */
+  modelUrl: string | null;
+  /** 配合 modelUrl 使用的密钥；设置了 modelUrl 时 Mastra 不再读取 provider 的 *_API_KEY，只用这里的值 */
+  modelApiKey: string | null;
   githubToken: string | null;
   splitFileThreshold: number;
   maxSteps: number;
@@ -63,8 +77,16 @@ export type LoomConfig = {
     cacheDir: string;
     scratchDir: string;
     databaseUrl: string;
+    /** mastra dev / CLI 读取的 .env 位置，用于提示用户去哪里改配置 */
+    envFile: string;
   };
 };
+
+/** 写进报告与缓存键的模型标识：同一模型名换了接口地址，视为不同模型。 */
+export function modelLabel(config: Pick<LoomConfig, "model" | "modelUrl">): string | null {
+  if (!config.model) return null;
+  return config.modelUrl ? `${config.model} @ ${config.modelUrl}` : config.model;
+}
 
 export function parseConfig(env: NodeJS.ProcessEnv): LoomConfig {
   const parsed = envSchema.safeParse(env);
@@ -82,6 +104,8 @@ export function parseConfig(env: NodeJS.ProcessEnv): LoomConfig {
   return {
     mode: e.LOOM_AGENT_MODE,
     model: e.LOOM_MODEL ?? null,
+    modelUrl: e.LOOM_MODEL_URL?.replace(/\/+$/, "") ?? null,
+    modelApiKey: e.LOOM_MODEL_API_KEY ?? null,
     githubToken: e.GITHUB_TOKEN ?? null,
     splitFileThreshold: e.LOOM_SPLIT_FILE_THRESHOLD,
     maxSteps: e.LOOM_MAX_STEPS,
@@ -97,6 +121,7 @@ export function parseConfig(env: NodeJS.ProcessEnv): LoomConfig {
       cacheDir: join(dataDir, "cache"),
       scratchDir: join(dataDir, "scratch"),
       databaseUrl: `file:${join(dataDir, "mastra.db")}`,
+      envFile: repoRoot ? join(repoRoot, "apps", "loom", ".env") : resolve(".env"),
     },
   };
 }

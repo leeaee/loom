@@ -7,5 +7,5 @@ export const architectureFlowStep = createAnalyzeStep({
   description: "架构与关键流程",
   agent: architectureFlowAgent,
   buildPrompt: ({ ctx, digests }) =>
-    `${repoContext(ctx, digests)}\n\n请按 architecture-flow 技能输出该仓库的架构与流程（architecture），包含 Mermaid flowchart。`,
+    `${repoContext(ctx, digests)}\n\n请按 architecture-flow 技能输出该仓库的架构与流程，包含 Mermaid flowchart。`,
 });

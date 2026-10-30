@@ -26,7 +26,7 @@ export const scoutRepoStep = createStep({
       .map((l) => `${l.language} ${l.files}`)
       .join("、");
     await log.info(
-      `共 ${scout.totalFiles} 个文件，源文件 ${scout.sourceFiles} 个，顶层目录 ${scout.topLevelDirs.length} 个` +
+      `扫描 ${inputData.checkoutDir}：共 ${scout.totalFiles} 个文件，源文件 ${scout.sourceFiles} 个，顶层目录 ${scout.topLevelDirs.length} 个` +
         `${languages ? `；语言：${languages}` : ""}${scout.hasTsconfig ? "；发现 tsconfig.json" : ""}`,
     );
     await log.info(

@@ -27,6 +27,15 @@ describe("ReportTabs", () => {
     expect(screen.getByText(fixtureReport.repo.sha.slice(0, 7), { exact: false })).toBeTruthy();
   });
 
+  it("warns that a fake-mode report contains sample data only", () => {
+    const { unmount } = render(<ReportTabs report={fixtureReport} />);
+    expect(screen.getByText(copy.report.fakeNotice)).toBeTruthy();
+    unmount();
+    render(<ReportTabs report={{ ...fixtureReport, mode: "real", model: "openai/gpt-5.1" }} />);
+    expect(screen.queryByText(copy.report.fakeNotice)).toBeNull();
+    expect(screen.getByText(`${copy.runtime.mode.real} · openai/gpt-5.1`)).toBeTruthy();
+  });
+
   it("shows the API catalog as a table", async () => {
     render(<ReportTabs report={fixtureReport} />);
     await userEvent.click(screen.getByRole("tab", { name: copy.analyses["api-surface"] }));

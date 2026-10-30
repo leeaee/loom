@@ -1,7 +1,7 @@
 import { analyzeInputSchema, analyzeOutputSchema, repoRefSchema } from "@loom/contracts";
 import { createStep } from "@mastra/core/workflows";
 import { z } from "zod";
-import { loadConfig } from "../../../config/index";
+import { loadConfig, modelLabel } from "../../../config/index";
 import { computeCacheKey, LoomError, parseRepoUrl, renderReportMarkdown } from "../../../domain/index";
 import { createRunLogger, hashSkillsDir, syncRepo } from "../../../infra/index";
 import { getRunStore } from "../../runtime";
@@ -41,8 +41,16 @@ export const syncRepoStep = createStep({
       throw error;
     }
     const ref = inputData.ref ?? null;
+    const model = modelLabel(config);
     const repoLabel = `${parsed.value.host}/${parsed.value.owner}/${parsed.value.name}`;
-    await log.info(`同步 ${repoLabel}${ref ? ` @ ${ref}` : "（默认分支）"}，模式 ${config.mode}`);
+    await log.info(`同步 ${repoLabel}${ref ? ` @ ${ref}` : "（默认分支）"}`);
+    await (config.mode === "fake" ? log.warn : log.info)(
+      config.mode === "fake"
+        ? `假模式（LOOM_AGENT_MODE=fake）：只真实执行同步与扫描，分析结果是内置示例数据；要真实分析请在 ${config.paths.envFile} 设置 LOOM_AGENT_MODE=real 与 LOOM_MODEL`
+        : `真实模式：模型 ${model}`,
+    );
+    const runPaths = getRunStore().reportPaths(runId);
+    await log.info(`运行目录 ${runPaths.dir}（日志 logs.jsonl，报告 report.json / report.md）`);
 
     const startedAt = Date.now();
     let synced: Awaited<ReturnType<typeof syncRepo>>;
@@ -57,8 +65,9 @@ export const syncRepoStep = createStep({
       await log.error(error instanceof Error ? error.message : String(error));
       throw error;
     }
-    const { sha, checkoutDir } = synced;
+    const { sha, checkoutDir, mirrorDir } = synced;
     await log.info(`检出提交 ${sha.slice(0, 12)}（${((Date.now() - startedAt) / 1000).toFixed(1)} 秒）`);
+    await log.info(`仓库镜像 ${mirrorDir}；本次检出（只读分析）${checkoutDir}`);
 
     const skillsHash = await hashSkillsDir(config.paths.skillsDir);
     const cacheKey = computeCacheKey({
@@ -66,7 +75,7 @@ export const syncRepoStep = createStep({
       sha,
       skillsHash,
       mode: config.mode,
-      model: config.model,
+      model,
     });
 
     if (inputData.force) {
@@ -78,6 +87,7 @@ export const syncRepoStep = createStep({
         const report = { ...(await store.readReport(cachedRunId)), runId };
         const reportPath = await store.writeReport(report, renderReportMarkdown(report));
         await log.info(`命中缓存：同一提交与技能版本已在运行 ${cachedRunId} 分析过，直接复用报告`);
+        await log.info(`报告已复制到 ${reportPath}（来源 ${store.reportPaths(cachedRunId).dir}）`);
         return bail(analyzeOutputSchema.parse({ runId, cached: true, reportPath }));
       }
       await log.info("未命中缓存，开始分析");
@@ -95,7 +105,7 @@ export const syncRepoStep = createStep({
       },
       checkoutDir,
       mode: config.mode,
-      model: config.model,
+      model,
       cacheKey,
     };
   },

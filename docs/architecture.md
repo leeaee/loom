@@ -103,6 +103,9 @@ flowchart TD
   被分析仓库的代码一律不执行。
 - macOS seatbelt 允许读取全盘，因此本地沙箱只适合本机单用户场景。
 
+模型：`LOOM_MODEL`（`provider/model`）走 Mastra 模型路由；设置 `LOOM_MODEL_URL`（与可选的 `LOOM_MODEL_API_KEY`）时
+改用 OpenAI 兼容接口 `<url>/chat/completions`，可接 DeepSeek、Ollama、vLLM 或公司网关。
+
 真实模式下，Agent 调用设最大步数（`LOOM_MAX_STEPS`）；结构化输出校验失败时带错误信息重试一次，仍失败记为 `AGENT_OUTPUT_INVALID`。
 
 ## MCP
@@ -116,11 +119,13 @@ flowchart TD
 
 ## Web
 
-- `/`：提交 Git 地址与可选 ref，列出最近运行（`GET /loom/runs`，运行中每 3 秒刷新）。
+- `/`：提交 Git 地址与可选 ref，列出最近运行（`GET /loom/runs`，运行中每 3 秒刷新）；
+  “运行环境”卡片（`GET /loom/runtime`）说明当前是假模式还是真实模式、模型与接口地址、数据目录和 `.env` 位置。
 - 提交时用 `run.stream()` 启动运行，读到第一个事件即断开（服务端运行不受影响）。只有 `stream` 启动的运行才有可回放的事件流，
   用 `start()` 启动的运行 `observe()` 会立刻结束。
 - `/runs/[runId]`：先用 `runById` 取快照、`GET /loom/runs/:runId/logs` 取已落盘的日志，未结束则 `observe()` 回放并继续订阅事件流；
-  事件流提前结束而运行未完成时，每 2 秒轮询快照与日志。事件经 `runReducer` 归约，`deriveTimeline` 归并成六个阶段（含耗时与错误），
+  事件流提前结束或中断（`next.config.ts` 已把代理超时 `proxyTimeout` 从默认 30 秒放宽到 30 分钟）而运行未完成时，
+  每 2 秒轮询快照与日志，连续失败 5 次才报错；流中断本身不算运行失败。事件经 `runReducer` 归约，`deriveTimeline` 归并成六个阶段（含耗时与错误），
   `deriveOutcome` 给出结论（进行中、成功、部分分析失败、失败于某阶段、取消、命中缓存）；可取消。
   结束后进度与日志折叠在“运行详情”里，下面显示报告标签页（概览、API、数据结构、架构图、技术选型），可下载 Markdown 与 JSON。
 - 运行日志：步骤通过 `createRunLogger`（`infra/run-log.ts`）写日志，一条日志同时进入 Mastra logger、

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { analysisIdSchema, artifactsSchema, moduleDigestSchema } from "./analyses/index";
 import { repoRefSchema, repoScoutSchema } from "./repo";
-import { workflowStepIdSchema } from "./run";
+import { agentModeSchema, workflowStepIdSchema } from "./run";
 
 export const REPORT_SCHEMA_VERSION = 1;
 
@@ -32,8 +32,8 @@ export const reportSchema = z.object({
   schemaVersion: z.literal(REPORT_SCHEMA_VERSION),
   runId: z.string(),
   createdAt: z.string(),
-  mode: z.enum(["real", "fake"]),
-  model: z.string().nullable(),
+  mode: agentModeSchema,
+  model: z.string().nullable().describe("模型标识；配置了 LOOM_MODEL_URL 时形如 provider/model @ url"),
   repo: repoRefSchema,
   scout: repoScoutSchema,
   digests: z.array(moduleDigestSchema),

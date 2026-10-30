@@ -18,6 +18,7 @@ import {
 
 const SNAPSHOT_FIELDS = ["result", "error", "payload", "steps"];
 const POLL_INTERVAL_MS = 2000;
+const POLL_MAX_FAILURES = 5;
 
 export class RunNotFoundError extends Error {}
 
@@ -40,8 +41,8 @@ async function loadSnapshot(runId: string): Promise<RunSnapshot> {
 
 /**
  * 订阅一次分析运行：先取快照与已落盘的日志（刷新页面也能恢复），未结束则订阅事件流。
- * 事件流只在运行由 `stream` 启动时存在；流提前结束而运行未完成时（例如从 Studio 用 start 启动、
- * 服务重启），改为定时轮询快照与日志，直到运行结束。
+ * 事件流只在运行由 `stream` 启动时存在；流提前结束或中断而运行未完成时（例如从 Studio 用 start 启动、
+ * 服务重启、代理断开），改为定时轮询快照与日志，直到运行结束；轮询连续失败多次才报错。
  */
 export function useAnalysisRun(runId: string) {
   const [state, dispatch] = useReducer(runReducer, initialRunState);
@@ -64,21 +65,38 @@ export function useAnalysisRun(runId: string) {
       return isTerminal(toRunStatus(snapshot.status));
     };
 
-    (async () => {
+    const follow = async () => {
       try {
-        if (await refresh()) return;
-
         const run = await analyzeWorkflow().createRun({ runId });
         const stream = (await run.observe()) as ReadableStream<RunEvent>;
         reader = stream.getReader();
         while (!disposed) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) return;
           send({ type: "event", event: value });
         }
-        while (!disposed && !(await refresh())) {
-          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      } catch {
+        // 事件流中断（代理超时、网络抖动）不代表运行失败，交给轮询确认真实状态。
+      }
+    };
+    const poll = async () => {
+      for (let failures = 0; !disposed; ) {
+        try {
+          if (await refresh()) return;
+          failures = 0;
+        } catch (error) {
+          failures += 1;
+          if (error instanceof RunNotFoundError || failures >= POLL_MAX_FAILURES) throw error;
         }
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      }
+    };
+
+    (async () => {
+      try {
+        if (await refresh()) return;
+        await follow();
+        await poll();
       } catch (error) {
         if (disposed) return;
         if (error instanceof RunNotFoundError) setNotFound(true);
